@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uzawa–Lucas Transitional Dynamics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8e8f0;
+    --muted: #7a7a9a;
+    --war: #2dd4a0;
+    --epi: #f06060;
+    --ss: #7878a8;
+    --accent: #a78bfa;
+    --accent2: #60a5fa;
+    --amber: #fbbf24;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 24px;
+  }
+  header h1 {
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  header .sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+  }
+
+  /* ── Layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: calc(100vh - 73px);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    overflow-y: auto;
+  }
+
+  .sidebar-section { display: flex; flex-direction: column; gap: 14px; }
+  .sidebar-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* Sliders */
+  .param-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .param-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .param-name {
+    font-size: 13px;
+    color: var(--text);
+  }
+  .param-name em {
+    font-style: italic;
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .param-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+    min-width: 40px;
+    text-align: right;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--surface2);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    transition: transform 0.15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  /* Shock buttons */
+  .shock-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .shock-btn {
+    padding: 10px 12px;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .shock-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .shock-btn.war { border-color: rgba(45,212,160,0.4); color: var(--war); }
+  .shock-btn.war:hover { background: rgba(45,212,160,0.08); }
+  .shock-btn.epi { border-color: rgba(240,96,96,0.4); color: var(--epi); }
+  .shock-btn.epi:hover { background: rgba(240,96,96,0.08); }
+  .shock-btn.reset { grid-column: 1/-1; color: var(--muted); }
+
+  /* Steady state display */
+  .ss-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .ss-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .ss-card-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .ss-card-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent2);
+  }
+
+  /* omega slider */
+  .omega-section {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .omega-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .omega-val-display {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text);
+    text-align: center;
+    margin: 8px 0;
+  }
+  .omega-interpretation {
+    font-size: 11px;
+    text-align: center;
+    margin-top: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .omega-war { background: rgba(45,212,160,0.1); color: var(--war); }
+  .omega-ss  { background: rgba(120,120,168,0.1); color: var(--ss); }
+  .omega-epi { background: rgba(240,96,96,0.1);  color: var(--epi); }
+
+  /* ── Main content ── */
+  .main {
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .tab {
+    padding: 8px 18px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.18s;
+    border-radius: 4px 4px 0 0;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Chart grid */
+  .chart-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .chart-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    position: relative;
+  }
+  .chart-card-title {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .chart-card-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.6;
+    margin-bottom: 12px;
+  }
+  .chart-wrap { position: relative; height: 180px; }
+  .chart-wrap-tall { position: relative; height: 260px; }
+
+  /* Phase diagram special card */
+  .phase-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  /* Tab panels */
+  .tab-panel { display: none; flex-direction: column; gap: 16px; }
+  .tab-panel.active { display: flex; }
+
+  /* Equation box */
+  .eq-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 2;
+  }
+  .eq-box .eq-label { color: var(--muted); font-size: 10px; display: block; margin-bottom: 4px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .eq-box .eq { color: var(--accent2); font-size: 13px; }
+  .eq-box .eq-note { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'IBM Plex Sans', sans-serif; }
+
+  /* Animation toggle */
+  .anim-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .anim-btn {
+    padding: 6px 16px;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .anim-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .anim-btn.playing { border-color: var(--war); color: var(--war); }
+  .anim-label { font-size: 12px; color: var(--muted); }
+  .anim-progress {
+    flex: 1;
+    height: 3px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .anim-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  /* Current values display */
+  .current-vals {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .cv-item {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+  .cv-label { color: var(--muted); }
+  .cv-val { color: var(--accent2); font-weight: 500; }
+
+  /* Insight boxes */
+  .insight {
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    background: rgba(167,139,250,0.05);
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .insight.war { border-color: var(--war); background: rgba(45,212,160,0.05); }
+  .insight.epi { border-color: var(--epi); background: rgba(240,96,96,0.05); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Uzawa–Lucas Model</h1>
+  <span class="sub">TRANSITIONAL DYNAMICS SIMULATOR</span>
+  <span class="tag">Barro &amp; Sala-i-Martin Ch.5</span>
+</header>
+
+<div class="layout">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Parameters</div>
+
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-name"><em>α</em> — capital share</span>
+          <span class="param-val" id="val-alpha">0.40</span>
+        </div>
+        <input type="range" id="sl-alpha" min="0.20" max="0.65" step="0.01" value="0.40">
+      </div>
+
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-name"><em>θ</em> — inv. IES</span>
+          <span class="param-val" id="val-theta">2.00</span>
+        </div>
+        <input type="range" id="sl-theta" min="1.10" max="5.00" step="0.10" value="2.00">
+      </div>
+
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-name"><em>B</em> — educ. productivity</span>
+          <span class="param-val" id="val-B">0.11</span>
+        </div>
+        <input type="range" id="sl-B" min="0.06" max="0.20" step="0.005" value="0.11">
+      </div>
+
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-name"><em>δ</em> — depreciation</span>
+          <span class="param-val" id="val-delta">0.05</span>
+        </div>
+        <input type="range" id="sl-delta" min="0.02" max="0.10" step="0.005" value="0.05">
+      </div>
+
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-name"><em>ρ</em> — time preference</span>
+          <span class="param-val" id="val-rho">0.02</span>
+        </div>
+        <input type="range" id="sl-rho" min="0.01" max="0.06" step="0.005" value="0.02">
+      </div>
+    </div>
+
+    <!-- Steady state display -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Steady State</div>
+      <div class="ss-grid">
+        <div class="ss-card">
+          <div class="ss-card-label">r* = B − δ</div>
+          <div class="ss-card-val" id="ss-r">6.00%</div>
+        </div>
+        <div class="ss-card">
+          <div class="ss-card-label">γ* growth</div>
+          <div class="ss-card-val" id="ss-gamma">2.00%</div>
+        </div>
+        <div class="ss-card">
+          <div class="ss-card-label">u* in prod.</div>
+          <div class="ss-card-val" id="ss-u">0.364</div>
+        </div>
+        <div class="ss-card">
+          <div class="ss-card-label">half-life</div>
+          <div class="ss-card-val" id="ss-hl">4.2 yr</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Omega control -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Initial Condition ω₀/ω*</div>
+      <div class="omega-section">
+        <div class="omega-label">Drag to set starting imbalance</div>
+        <input type="range" id="sl-omega" min="0.15" max="2.50" step="0.05" value="1.50"
+               style="width:100%;margin-bottom:6px">
+        <div class="omega-val-display" id="omega-display">ω₀ = 1.50 ω*</div>
+        <div class="omega-interpretation" id="omega-interp">K scarce — war scenario</div>
+      </div>
+    </div>
+
+    <!-- Shock buttons -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Quick Scenarios</div>
+      <div class="shock-btns">
+        <button class="shock-btn war" onclick="setScenario('war-severe')">War<br>60% K lost</button>
+        <button class="shock-btn war" onclick="setScenario('war-mild')">War<br>30% K lost</button>
+        <button class="shock-btn epi" onclick="setScenario('epi-severe')">Epidemic<br>40% H lost</button>
+        <button class="shock-btn epi" onclick="setScenario('epi-mild')">Epidemic<br>20% H lost</button>
+        <button class="shock-btn reset" onclick="setScenario('ss')">Reset to Steady State</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="main">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('dynamics')">Growth Rates</div>
+      <div class="tab" onclick="switchTab('phase')">Phase Diagram</div>
+      <div class="tab" onclick="switchTab('state')">State Variables</div>
+      <div class="tab" onclick="switchTab('compare')">War vs Epidemic</div>
+    </div>
+
+    <!-- Animation controls -->
+    <div class="anim-controls">
+      <button class="anim-btn" id="play-btn" onclick="togglePlay()">▶ Animate</button>
+      <span class="anim-label">t =</span>
+      <span class="anim-label" id="t-display" style="font-family:'IBM Plex Mono',monospace;color:var(--accent2);min-width:50px">0.0 yr</span>
+      <div class="anim-progress"><div class="anim-progress-bar" id="prog-bar"></div></div>
+      <div class="current-vals" id="curr-vals"></div>
+    </div>
+
+    <!-- ─── Tab: Growth Rates ─── -->
+    <div class="tab-panel active" id="tab-dynamics">
+      <div class="chart-grid-2">
+        <div class="chart-card">
+          <div class="chart-card-title">Ċ/C — Consumption growth</div>
+          <div class="chart-card-subtitle">eq. (5.25) · monotone in ω</div>
+          <div class="chart-wrap"><canvas id="ch-gC"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">K̇/K — Physical capital growth</div>
+          <div class="chart-card-subtitle">eq. (5.42) · decreasing in ω near SS</div>
+          <div class="chart-wrap"><canvas id="ch-gK"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Ḣ/H — Human capital growth</div>
+          <div class="chart-card-subtitle">eq. (5.41) · increasing in ω</div>
+          <div class="chart-wrap"><canvas id="ch-gH"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Ẏ/Y — Output growth</div>
+          <div class="chart-card-subtitle">eq. (5.43) · ambiguous (U-shape possible)</div>
+          <div class="chart-wrap"><canvas id="ch-gY"></canvas></div>
+        </div>
+      </div>
+      <div id="insight-dynamics" class="insight"></div>
+    </div>
+
+    <!-- ─── Tab: Phase Diagram ─── -->
+    <div class="tab-panel" id="tab-phase">
+      <div class="chart-grid-2">
+        <div class="chart-card">
+          <div class="chart-card-title">(z, χ) Phase Space</div>
+          <div class="chart-card-subtitle">Saddle path + current trajectory</div>
+          <div class="chart-wrap-tall"><canvas id="ch-phase-zchi"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">z(t) — Avg product of capital</div>
+          <div class="chart-card-subtitle">eq. (5.37) · exact closed-form solution</div>
+          <div class="chart-wrap-tall"><canvas id="ch-z"></canvas></div>
+        </div>
+      </div>
+      <div class="eq-box">
+        <span class="eq-label">Closed-form solution for z(t)</span>
+        <span class="eq">z(t) = z* · z₀ / [ z* · exp(−(1−α)z*·t) + z₀ · (1 − exp(−(1−α)z*·t)) ]</span>
+        <span class="eq-note">This decouples from χ and u because η=0 makes the education sector linear in H.</span>
+      </div>
+    </div>
+
+    <!-- ─── Tab: State Variables ─── -->
+    <div class="tab-panel" id="tab-state">
+      <div class="chart-grid-3">
+        <div class="chart-card">
+          <div class="chart-card-title">u(t) — Fraction of H in production</div>
+          <div class="chart-card-subtitle">Control variable — allocation decision</div>
+          <div class="chart-wrap"><canvas id="ch-u"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">χ(t) = C/K</div>
+          <div class="chart-card-subtitle">Consumption-capital ratio</div>
+          <div class="chart-wrap"><canvas id="ch-chi"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">r(t) — Rate of return</div>
+          <div class="chart-card-subtitle">r = αz − δ · converges to r* = B−δ</div>
+          <div class="chart-wrap"><canvas id="ch-r"></canvas></div>
+        </div>
+      </div>
+      <div class="eq-box">
+        <span class="eq-label">Stable manifold (saddle path) — linearised</span>
+        <span class="eq">χ(t) = χ* + v₂ · [z(t) − z*] &nbsp;&nbsp; u(t) = u* + v₃ · [z(t) − z*]</span>
+        <span class="eq-note">v₂ and v₃ are eigenvector components of the Jacobian at steady state. Unique stable path.</span>
+      </div>
+    </div>
+
+    <!-- ─── Tab: War vs Epidemic ─── -->
+    <div class="tab-panel" id="tab-compare">
+      <div class="chart-grid-2">
+        <div class="chart-card">
+          <div class="chart-card-title">Ċ/C — War vs Epidemic</div>
+          <div class="chart-card-subtitle">Core asymmetry of the model</div>
+          <div class="chart-wrap-tall"><canvas id="ch-cmp-gC"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Ẏ/Y — War vs Epidemic</div>
+          <div class="chart-card-subtitle">Output growth comparison</div>
+          <div class="chart-wrap-tall"><canvas id="ch-cmp-gY"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-grid-2">
+        <div class="insight war">
+          <strong style="color:var(--war)">War (K destroyed, ω &lt; ω*):</strong><br>
+          z rises above z* → high return to capital → investment floods in → K rebuilt fast.
+          Consumption growth is high immediately. u &gt; u* — people work more than they study.
+          Recovery is rapid because K-scarcity raises the return to capital automatically.
+        </div>
+        <div class="insight epi">
+          <strong style="color:var(--epi)">Epidemic (H destroyed, ω &gt; ω*):</strong><br>
+          z falls below z* → low return to capital → weak investment incentive.
+          Education sector needs H to produce H — scarce factor is also the input to its own replenishment.
+          u &lt; u* — more study, less work — but rebuilding is slow. Self-reinforcing drag.
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// MODEL CORE
+// ══════════════════════════════════════════════════════════════
+
+let P = { alpha:0.40, theta:2.00, B:0.11, delta:0.05, rho:0.02 };
+let omegaRatio = 1.50;
+const T = 80, N = 300;
+
+function computeSS(p) {
+  const { alpha, theta, B, delta, rho } = p;
+  const phi = (rho + delta*(1-theta)) / (B*theta);
+  const u_s = phi + (theta-1)/theta;
+  const chi_s = B*(phi + 1/alpha - 1/theta);
+  const z_s = B/alpha;
+  const r_s = B - delta;
+  const gamma_s = (1/theta)*(B - delta - rho);
+  const lam = (1-alpha)*z_s;
+  const lam_eig = -lam;
+  const v2 = -chi_s*(alpha-theta)/theta / (lam_eig - chi_s);
+  const v3 = u_s*v2 / (lam_eig - B*u_s);
+  const hl = Math.log(2)/lam;
+  return { phi, u_s, chi_s, z_s, r_s, gamma_s, lam, v2, v3, hl };
+}
+
+function generateTrajectory(omegaRatio, p) {
+  const ss = computeSS(p);
+  const { alpha, theta, B, delta, rho } = p;
+  const { z_s, chi_s, u_s, gamma_s, lam, v2, v3, r_s } = ss;
+
+  // z0 and omega inversely related: z0 = z_s * (1/omegaRatio)^(1-alpha)
+  const z0 = z_s * Math.pow(1/omegaRatio, 1-alpha);
+
+  const t = [], z = [], chi = [], u = [], gC = [], gK = [], gH = [], gY = [], r = [];
+  for (let i = 0; i < N; i++) {
+    const ti = (i/(N-1))*T;
+    const exp_t = Math.exp(-lam*ti);
+    const zi = z_s*z0 / (z_s*exp_t + z0*(1-exp_t));
+    const chii = chi_s + v2*(zi - z_s);
+    const ui = u_s + v3*(zi - z_s);
+    const gCi = (1/theta)*(alpha*zi - delta - rho)*100;
+    const gKi = (gamma_s + (zi-z_s) - (chii-chi_s))*100;
+    const gHi = (gamma_s - B*(ui-u_s))*100;
+    const gYi = (gamma_s + alpha*(zi-z_s) - (chii-chi_s))*100;
+    const ri  = (alpha*zi - delta)*100;
+    t.push(ti); z.push(zi); chi.push(chii); u.push(ui);
+    gC.push(gCi); gK.push(gKi); gH.push(gHi); gY.push(gYi); r.push(ri);
+  }
+  return { t, z, chi, u, gC, gK, gH, gY, r, ss, z0, p };
+}
+
+// ══════════════════════════════════════════════════════════════
+// CHART SETUP
+// ══════════════════════════════════════════════════════════════
+
+Chart.defaults.color = '#7a7a9a';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 10;
+
+const CDARK = {
+  war: '#2dd4a0', epi: '#f06060', ss: '#7878a8',
+  accent: '#a78bfa', accent2: '#60a5fa', amber: '#fbbf24'
+};
+
+function makeChart(id, label, color, ssLabel) {
+  const ctx = document.getElementById(id).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: label,
+          data: [],
+          borderColor: color,
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: ssLabel || 'steady state',
+          data: [],
+          borderColor: CDARK.ss,
+          borderWidth: 1,
+          borderDash: [4,4],
+          pointRadius: 0,
+          fill: false,
+        },
+        {
+          label: 'current t',
+          data: [],
+          borderColor: '#fff',
+          borderWidth: 0,
+          pointRadius: 5,
+          pointBackgroundColor: color,
+          pointBorderColor: '#0a0a0f',
+          pointBorderWidth: 2,
+          showLine: false,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          title: { display: true, text: 'years', color: '#7a7a9a', font:{size:9} }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        }
+      }
+    }
+  });
+}
+
+// Create all charts
+const charts = {
+  gC: makeChart('ch-gC','Ċ/C (%/yr)', CDARK.accent2),
+  gK: makeChart('ch-gK','K̇/K (%/yr)', CDARK.amber),
+  gH: makeChart('ch-gH','Ḣ/H (%/yr)', CDARK.war),
+  gY: makeChart('ch-gY','Ẏ/Y (%/yr)', CDARK.epi),
+  z:  makeChart('ch-z', 'z', CDARK.accent),
+  u:  makeChart('ch-u', 'u', CDARK.accent2),
+  chi:makeChart('ch-chi','χ = C/K', CDARK.amber),
+  r:  makeChart('ch-r', 'r (%/yr)', CDARK.war),
+};
+
+// Phase diagram chart
+const ctxPhase = document.getElementById('ch-phase-zchi').getContext('2d');
+const phaseChart = new Chart(ctxPhase, {
+  type: 'scatter',
+  data: {
+    datasets: [
+      { label:'saddle path', data:[], borderColor: CDARK.accent, borderWidth:2, pointRadius:0, showLine:true, fill:false, tension:0.3 },
+      { label:'χ̇=0 locus',  data:[], borderColor: CDARK.epi,   borderWidth:1, pointRadius:0, showLine:true, fill:false, borderDash:[4,4] },
+      { label:'trajectory', data:[], borderColor: CDARK.accent2, borderWidth:1.5, pointRadius:0, showLine:true, fill:false, tension:0.3 },
+      { label:'current',    data:[], pointRadius:7, pointBackgroundColor: CDARK.accent2, pointBorderColor:'#0a0a0f', pointBorderWidth:2, showLine:false },
+      { label:'SS',         data:[], pointRadius:8, pointBackgroundColor: CDARK.ss, pointBorderColor:'#0a0a0f', pointBorderWidth:2, showLine:false },
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false, animation:false,
+    plugins:{ legend:{display:false} },
+    scales:{
+      x:{ title:{display:true,text:'z',color:'#7a7a9a',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} },
+      y:{ title:{display:true,text:'χ',color:'#7a7a9a',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} }
+    }
+  }
+});
+
+// Comparison charts
+const ctxCmpGC = document.getElementById('ch-cmp-gC').getContext('2d');
+const cmpGC = new Chart(ctxCmpGC, {
+  type:'line',
+  data:{
+    labels:[],
+    datasets:[
+      {label:'War (K destroyed)',      data:[], borderColor:CDARK.war,    borderWidth:2.5, pointRadius:0, tension:0.3, fill:false},
+      {label:'Epidemic (H destroyed)', data:[], borderColor:CDARK.epi,    borderWidth:2.5, pointRadius:0, tension:0.3, fill:false},
+      {label:'γ* steady state',        data:[], borderColor:CDARK.ss,     borderWidth:1,   pointRadius:0, borderDash:[4,4], fill:false},
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:true,labels:{color:'#aaa',font:{size:10},boxWidth:20}}},
+    scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},title:{display:true,text:'years',color:'#7a7a9a',font:{size:9}}},
+            y:{grid:{color:'rgba(255,255,255,0.04)'}}}}
+});
+
+const ctxCmpGY = document.getElementById('ch-cmp-gY').getContext('2d');
+const cmpGY = new Chart(ctxCmpGY, {
+  type:'line',
+  data:{labels:[],datasets:[
+    {label:'War (K destroyed)',      data:[], borderColor:CDARK.war, borderWidth:2.5, pointRadius:0, tension:0.3, fill:false},
+    {label:'Epidemic (H destroyed)', data:[], borderColor:CDARK.epi, borderWidth:2.5, pointRadius:0, tension:0.3, fill:false},
+    {label:'γ* steady state',        data:[], borderColor:CDARK.ss,  borderWidth:1,   pointRadius:0, borderDash:[4,4], fill:false},
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:true,labels:{color:'#aaa',font:{size:10},boxWidth:20}}},
+    scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},title:{display:true,text:'years',color:'#7a7a9a',font:{size:9}}},
+            y:{grid:{color:'rgba(255,255,255,0.04)'}}}}
+});
+
+// ══════════════════════════════════════════════════════════════
+// UPDATE LOGIC
+// ══════════════════════════════════════════════════════════════
+
+let currentTraj = null;
+let animFrame = null;
+let animIdx = 0;
+let isPlaying = false;
+
+function updateSS() {
+  const ss = computeSS(P);
+  document.getElementById('ss-r').textContent = (ss.r_s*100).toFixed(2)+'%';
+  document.getElementById('ss-gamma').textContent = (ss.gamma_s*100).toFixed(2)+'%';
+  document.getElementById('ss-u').textContent = ss.u_s.toFixed(3);
+  document.getElementById('ss-hl').textContent = ss.hl.toFixed(1)+' yr';
+}
+
+function updateChart(ch, traj, key, ssVal, tIdx) {
+  const labels = traj.t.map(v => v.toFixed(0));
+  ch.data.labels = labels;
+  ch.data.datasets[0].data = traj[key];
+  ch.data.datasets[1].data = traj.t.map(() => ssVal);
+  if (tIdx !== undefined && tIdx >= 0) {
+    ch.data.datasets[2].data = [{ x: traj.t[tIdx].toFixed(0), y: traj[key][tIdx] }];
+    ch.data.datasets[2].showLine = false;
+  }
+  ch.update('none');
+}
+
+function updatePhaseChart(traj, tIdx) {
+  const ss = traj.ss;
+  const zs = ss.z_s, chis = ss.chi_s;
+  const v2 = ss.v2;
+  
+  // Saddle path
+  const zMin = Math.min(...traj.z)*0.85, zMax = Math.max(...traj.z)*1.15;
+  const saddle = [];
+  for (let i = 0; i <= 40; i++) {
+    const zi = zMin + (zMax-zMin)*i/40;
+    saddle.push({ x: zi, y: chis + v2*(zi-zs) });
+  }
+  phaseChart.data.datasets[0].data = saddle;
+
+  // chi_dot=0 locus
+  const { alpha, theta } = P;
+  const slope = (theta-alpha)/theta;
+  const locus = [];
+  for (let i = 0; i <= 40; i++) {
+    const zi = zMin + (zMax-zMin)*i/40;
+    locus.push({ x: zi, y: chis + slope*(zi-zs) });
+  }
+  phaseChart.data.datasets[1].data = locus;
+
+  // Trajectory
+  const trajData = traj.z.map((zi,i) => ({ x: zi, y: traj.chi[i] }));
+  phaseChart.data.datasets[2].data = trajData;
+
+  // Current point
+  if (tIdx !== undefined && tIdx >= 0) {
+    phaseChart.data.datasets[3].data = [{ x: traj.z[tIdx], y: traj.chi[tIdx] }];
+  }
+  // SS point
+  phaseChart.data.datasets[4].data = [{ x: zs, y: chis }];
+
+  phaseChart.update('none');
+}
+
+function updateCompare() {
+  // War scenario: omega = 0.4 (K scarce, z > z*)
+  const tWar = generateTrajectory(0.40, P);
+  // Epidemic scenario: omega = 2.0 (H scarce, z < z*)
+  const tEpi = generateTrajectory(2.00, P);
+  const ss = computeSS(P);
+
+  const labels = tWar.t.map(v => v.toFixed(0));
+  cmpGC.data.labels = labels;
+  cmpGC.data.datasets[0].data = tWar.gC;
+  cmpGC.data.datasets[1].data = tEpi.gC;
+  cmpGC.data.datasets[2].data = tWar.t.map(() => ss.gamma_s*100);
+  cmpGC.update('none');
+
+  cmpGY.data.labels = labels;
+  cmpGY.data.datasets[0].data = tWar.gY;
+  cmpGY.data.datasets[1].data = tEpi.gY;
+  cmpGY.data.datasets[2].data = tWar.t.map(() => ss.gamma_s*100);
+  cmpGY.update('none');
+}
+
+function updateAll(tIdx) {
+  if (tIdx === undefined) tIdx = 0;
+  currentTraj = generateTrajectory(omegaRatio, P);
+  const ss = currentTraj.ss;
+
+  updateChart(charts.gC,  currentTraj, 'gC',  ss.gamma_s*100, tIdx);
+  updateChart(charts.gK,  currentTraj, 'gK',  ss.gamma_s*100, tIdx);
+  updateChart(charts.gH,  currentTraj, 'gH',  ss.gamma_s*100, tIdx);
+  updateChart(charts.gY,  currentTraj, 'gY',  ss.gamma_s*100, tIdx);
+  updateChart(charts.z,   currentTraj, 'z',   ss.z_s,         tIdx);
+  updateChart(charts.u,   currentTraj, 'u',   ss.u_s,         tIdx);
+  updateChart(charts.chi, currentTraj, 'chi', ss.chi_s,       tIdx);
+  updateChart(charts.r,   currentTraj, 'r',   ss.r_s*100,     tIdx);
+  updatePhaseChart(currentTraj, tIdx);
+  updateCompare();
+  updateSS();
+  updateInsight();
+  updateCurrentVals(tIdx);
+}
+
+function updateCurrentVals(tIdx) {
+  if (!currentTraj || tIdx === undefined) return;
+  const t = currentTraj.t[tIdx];
+  const el = document.getElementById('curr-vals');
+  el.innerHTML = `
+    <span class="cv-item"><span class="cv-label">z=</span><span class="cv-val">${currentTraj.z[tIdx].toFixed(4)}</span></span>
+    <span class="cv-item"><span class="cv-label">u=</span><span class="cv-val">${currentTraj.u[tIdx].toFixed(4)}</span></span>
+    <span class="cv-item"><span class="cv-label">χ=</span><span class="cv-val">${currentTraj.chi[tIdx].toFixed(4)}</span></span>
+    <span class="cv-item"><span class="cv-label">Ċ/C=</span><span class="cv-val">${currentTraj.gC[tIdx].toFixed(2)}%</span></span>
+    <span class="cv-item"><span class="cv-label">r=</span><span class="cv-val">${currentTraj.r[tIdx].toFixed(2)}%</span></span>
+  `;
+  document.getElementById('t-display').textContent = t.toFixed(1)+' yr';
+  document.getElementById('prog-bar').style.width = (tIdx/(N-1)*100)+'%';
+}
+
+function updateInsight() {
+  const el = document.getElementById('insight-dynamics');
+  if (omegaRatio < 0.85) {
+    el.className = 'insight war';
+    el.innerHTML = `<strong style="color:var(--war)">K-scarce economy (ω₀ = ${omegaRatio.toFixed(2)}ω*):</strong> z > z* → high return to capital → high Ċ/C immediately. K̇/K is high — physical capital floods back in. Ḣ/H is low — less human capital goes to education (u > u*). Recovery is rapid. This matches post-WWII Germany and Japan.`;
+  } else if (omegaRatio > 1.15) {
+    el.className = 'insight epi';
+    el.innerHTML = `<strong style="color:var(--epi)">H-scarce economy (ω₀ = ${omegaRatio.toFixed(2)}ω*):</strong> z < z* → low return to capital → low Ċ/C. More H goes to education (u < u*) but rebuilding is slow — the education sector needs H to produce H. Self-reinforcing drag. This matches Sub-Saharan Africa during the AIDS epidemic.`;
+  } else {
+    el.className = 'insight';
+    el.innerHTML = `<strong style="color:var(--ss)">Near steady state (ω₀ ≈ ω*):</strong> All growth rates approximately equal γ* = ${(computeSS(P).gamma_s*100).toFixed(2)}%/yr. z ≈ z*, u ≈ u*, χ ≈ χ*. The economy is in balanced growth — K and H grow at the same rate.`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// ANIMATION
+// ══════════════════════════════════════════════════════════════
+
+function togglePlay() {
+  if (isPlaying) {
+    isPlaying = false;
+    cancelAnimationFrame(animFrame);
+    document.getElementById('play-btn').textContent = '▶ Animate';
+    document.getElementById('play-btn').className = 'anim-btn';
+  } else {
+    isPlaying = true;
+    animIdx = 0;
+    document.getElementById('play-btn').textContent = '⏸ Pause';
+    document.getElementById('play-btn').className = 'anim-btn playing';
+    animate();
+  }
+}
+
+function animate() {
+  if (!isPlaying) return;
+  updateCurrentVals(animIdx);
+  // Update marker on all charts
+  updateChart(charts.gC,  currentTraj, 'gC',  currentTraj.ss.gamma_s*100, animIdx);
+  updateChart(charts.gK,  currentTraj, 'gK',  currentTraj.ss.gamma_s*100, animIdx);
+  updateChart(charts.gH,  currentTraj, 'gH',  currentTraj.ss.gamma_s*100, animIdx);
+  updateChart(charts.gY,  currentTraj, 'gY',  currentTraj.ss.gamma_s*100, animIdx);
+  updateChart(charts.z,   currentTraj, 'z',   currentTraj.ss.z_s,         animIdx);
+  updateChart(charts.u,   currentTraj, 'u',   currentTraj.ss.u_s,         animIdx);
+  updateChart(charts.chi, currentTraj, 'chi', currentTraj.ss.chi_s,       animIdx);
+  updateChart(charts.r,   currentTraj, 'r',   currentTraj.ss.r_s*100,     animIdx);
+  updatePhaseChart(currentTraj, animIdx);
+
+  animIdx += 2;
+  if (animIdx >= N) {
+    isPlaying = false;
+    animIdx = N-1;
+    document.getElementById('play-btn').textContent = '▶ Replay';
+    document.getElementById('play-btn').className = 'anim-btn';
+    return;
+  }
+  animFrame = requestAnimationFrame(animate);
+}
+
+// ══════════════════════════════════════════════════════════════
+// CONTROLS
+// ══════════════════════════════════════════════════════════════
+
+function bindSlider(id, key, display, decimals) {
+  const sl = document.getElementById(id);
+  const dv = document.getElementById(display);
+  sl.addEventListener('input', () => {
+    P[key] = parseFloat(sl.value);
+    dv.textContent = parseFloat(sl.value).toFixed(decimals);
+    if (isPlaying) { isPlaying = false; cancelAnimationFrame(animFrame); document.getElementById('play-btn').textContent='▶ Animate'; document.getElementById('play-btn').className='anim-btn'; }
+    updateAll(animIdx);
+  });
+}
+
+bindSlider('sl-alpha', 'alpha', 'val-alpha', 2);
+bindSlider('sl-theta', 'theta', 'val-theta', 2);
+bindSlider('sl-B',     'B',     'val-B',     3);
+bindSlider('sl-delta', 'delta', 'val-delta', 3);
+bindSlider('sl-rho',   'rho',   'val-rho',   3);
+
+document.getElementById('sl-omega').addEventListener('input', function() {
+  omegaRatio = parseFloat(this.value);
+  document.getElementById('omega-display').textContent = 'ω₀ = '+omegaRatio.toFixed(2)+' ω*';
+  const interp = document.getElementById('omega-interp');
+  if (omegaRatio < 0.85) {
+    interp.textContent = 'K scarce — war scenario'; interp.className = 'omega-interpretation omega-war';
+  } else if (omegaRatio > 1.15) {
+    interp.textContent = 'H scarce — epidemic scenario'; interp.className = 'omega-interpretation omega-epi';
+  } else {
+    interp.textContent = 'Near steady state'; interp.className = 'omega-interpretation omega-ss';
+  }
+  if (isPlaying) { isPlaying=false; cancelAnimationFrame(animFrame); document.getElementById('play-btn').textContent='▶ Animate'; document.getElementById('play-btn').className='anim-btn'; }
+  updateAll(0);
+});
+
+function setScenario(s) {
+  if (s === 'war-severe') {
+    omegaRatio = 1/(1-0.60);  // K drops 60% => omega drops => 1/ratio
+    // K destroyed 60% => omega = 0.4 => z high
+    omegaRatio = 0.40;
+  } else if (s === 'war-mild') {
+    omegaRatio = 0.70;
+  } else if (s === 'epi-severe') {
+    omegaRatio = 1/(1-0.40); // H drops 40% => omega = 1/0.6 = 1.67
+  } else if (s === 'epi-mild') {
+    omegaRatio = 1/(1-0.20); // H drops 20% => omega = 1.25
+  } else {
+    omegaRatio = 1.00;
+  }
+  omegaRatio = Math.max(0.15, Math.min(2.50, omegaRatio));
+  document.getElementById('sl-omega').value = omegaRatio;
+  document.getElementById('omega-display').textContent = 'ω₀ = '+omegaRatio.toFixed(2)+' ω*';
+  const interp = document.getElementById('omega-interp');
+  if (omegaRatio < 0.85) { interp.textContent='K scarce — war scenario'; interp.className='omega-interpretation omega-war'; }
+  else if (omegaRatio > 1.15) { interp.textContent='H scarce — epidemic scenario'; interp.className='omega-interpretation omega-epi'; }
+  else { interp.textContent='Near steady state'; interp.className='omega-interpretation omega-ss'; }
+  if (isPlaying) { isPlaying=false; cancelAnimationFrame(animFrame); document.getElementById('play-btn').textContent='▶ Animate'; document.getElementById('play-btn').className='anim-btn'; }
+  updateAll(0);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['dynamics','phase','state','compare'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ── INIT ──
+updateAll(0);
+</script>
+</body>
+</html>
